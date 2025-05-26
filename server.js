@@ -6,6 +6,7 @@ require('dotenv').config()
 const app= express();
 const stripe= Stripe(process.env.STRIPE_SECRET_KEY)
 const port= 3000;
+const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 app.use(cors())
 app.use(express.json())
@@ -32,5 +33,33 @@ app.post('/create-payment-intent', async(req, res) => {
         res.status(500).send({ error: error.message })
     }
 })
+
+
+//////
+//Webhooks
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+
+  let event;
+
+  try {
+    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+  } catch (err) {
+    console.log('Webhook signature verification failed.', err.message);
+    return res.sendStatus(400).send(`Webhook Error: ${err.message}`);
+  }
+
+  // Handle the event
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object;
+    console.log('✅ Payment succeeded for:', paymentIntent.id);
+    // ✅ Mark order as paid in your DB here
+  }else{
+    const failedIntent = event.data.object;
+    console.log('❌ Payment failed:', failedIntent);
+  }
+
+  res.sendStatus(200);
+});
 
 app.listen(port, () => console.log(`Server running on port ${port}...`));
