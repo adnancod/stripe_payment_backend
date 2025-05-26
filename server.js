@@ -9,7 +9,14 @@ const port= 3000;
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
 app.use(cors())
-app.use(express.json())
+
+app.use((req, res, next) => {
+  if (req.originalUrl === '/webhook') {
+    next(); // skip JSON parsing for webhook route
+  } else {
+    express.json()(req, res, next); // parse JSON for other routes
+  }
+});
 
 app.post('/create-payment-intent', async(req, res) => {
     try {
